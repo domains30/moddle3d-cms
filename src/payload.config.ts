@@ -97,7 +97,7 @@ export default buildConfig({
           fields: ["title", "description"],
         },
         pricingPackages: {
-          fields: ["title", "description"],
+          fields: ["title", "description", "includes", "button_text"],
         },
         trends: {
           fields: ["title", "content", "excerpt"],

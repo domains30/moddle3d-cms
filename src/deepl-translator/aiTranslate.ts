@@ -1,5 +1,6 @@
-import type { CollectionOptions, DeepLTranslationSettings } from './types'
-import { DeepLService } from './deeplService'
+import type { CollectionOptions, DeepLTranslationSettings } from "./types";
+import { DeepLService } from "./deeplService";
+import { translateTextAndObjects } from "./translateTextAndObjects";
 
 /**
  * Process RichText nodes recursively for translation
@@ -13,29 +14,35 @@ async function processRichTextNode(
 ): Promise<void> {
   try {
     // Handle text nodes
-    if (node.type === 'text' && node.text && node.text.trim()) {
+    if (node.type === "text" && node.text && node.text.trim()) {
       try {
         const translatedText = await deeplService.translateText(
           node.text,
           targetLanguage,
           sourceLanguage,
           settings,
-        )
-        node.text = translatedText
+        );
+        node.text = translatedText;
       } catch (error) {
-        console.error(`Failed to translate text: "${node.text}"`, error)
+        console.error(`Failed to translate text: "${node.text}"`, error);
       }
-      return
+      return;
     }
 
     // Handle nodes with children
     if (node.children && Array.isArray(node.children)) {
       for (const childNode of node.children) {
-        await processRichTextNode(childNode, deeplService, targetLanguage, sourceLanguage, settings)
+        await processRichTextNode(
+          childNode,
+          deeplService,
+          targetLanguage,
+          sourceLanguage,
+          settings,
+        );
       }
     }
   } catch (error) {
-    console.error('Error processing richText node:', error)
+    console.error("Error processing richText node:", error);
   }
 }
 
@@ -48,29 +55,35 @@ export async function translateCollection({
   settings,
   sourceLanguage,
 }: {
-  req: any
-  doc: any
-  collection: any
-  collectionOptions: CollectionOptions
-  codes?: string[]
-  settings?: DeepLTranslationSettings
-  sourceLanguage?: string
+  req: any;
+  doc: any;
+  collection: any;
+  collectionOptions: CollectionOptions;
+  codes?: string[];
+  settings?: DeepLTranslationSettings;
+  sourceLanguage?: string;
 }) {
   const sourceLanguageI =
-    sourceLanguage || doc.sourceLanguage || req.payload.config.localization?.defaultLocale || 'en'
+    sourceLanguage ||
+    doc.sourceLanguage ||
+    req.payload.config.localization?.defaultLocale ||
+    "en";
 
   // Get available locales
-  const localCodes: string[] = req.payload.config.localization?.localeCodes || ['en']
+  const localCodes: string[] = req.payload.config.localization?.localeCodes || [
+    "en",
+  ];
 
   // Initialize DeepL service
   const deeplService = new DeepLService({
     deeplApiKey: process.env.DEEPL_API_KEY,
-  })
+  });
 
   const translationPromises = localCodes
     .filter(
       (targetLanguage) =>
-        targetLanguage !== sourceLanguageI && (!codes || codes.includes(targetLanguage)),
+        targetLanguage !== sourceLanguageI &&
+        (!codes || codes.includes(targetLanguage)),
     )
     .map(async (targetLanguage: string) => {
       try {
@@ -81,36 +94,38 @@ export async function translateCollection({
           fallbackLocale: false,
           limit: 0,
           depth: 0,
-        })
+        });
 
-        const dataForUpdate: any = {}
+        const dataForUpdate: any = {};
 
         // Translate each field individually
         for (const fieldName of collectionOptions.fields) {
-          if (doc[fieldName]) {
+          if (doc[fieldName] !== undefined && doc[fieldName] !== null) {
             try {
-              if (typeof doc[fieldName] === 'string') {
+              if (typeof doc[fieldName] === "string") {
                 // Simple string field
-                const originalText = doc[fieldName]
+                const originalText = doc[fieldName];
                 const translatedText = await deeplService.translateText(
                   originalText,
                   targetLanguage,
                   sourceLanguageI,
                   settings || {},
-                )
-                dataForUpdate[fieldName] = translatedText
+                );
+                dataForUpdate[fieldName] = translatedText;
               } else if (
                 doc[fieldName] &&
-                typeof doc[fieldName] === 'object' &&
+                typeof doc[fieldName] === "object" &&
                 doc[fieldName].root
               ) {
                 // RichText field
                 try {
-                  const richTextContent = doc[fieldName]
+                  const richTextContent = doc[fieldName];
 
                   if (richTextContent.root && richTextContent.root.children) {
                     // Create a deep copy of the structure
-                    const cleanRichText = JSON.parse(JSON.stringify(richTextContent))
+                    const cleanRichText = JSON.parse(
+                      JSON.stringify(richTextContent),
+                    );
 
                     // Process each child element recursively
                     for (const child of cleanRichText.root.children) {
@@ -120,35 +135,73 @@ export async function translateCollection({
                         targetLanguage,
                         sourceLanguageI,
                         settings || {},
-                      )
+                      );
                     }
 
-                    dataForUpdate[fieldName] = cleanRichText
+                    dataForUpdate[fieldName] = cleanRichText;
                   } else {
                     // Fallback: keep original structure
-                    dataForUpdate[fieldName] = { ...doc[fieldName] }
+                    dataForUpdate[fieldName] = { ...doc[fieldName] };
                   }
                 } catch (error) {
-                  console.error(`Failed to process RichText field ${fieldName}:`, error)
-                  dataForUpdate[fieldName] = { ...doc[fieldName] }
+                  console.error(
+                    `Failed to process RichText field ${fieldName}:`,
+                    error,
+                  );
+                  dataForUpdate[fieldName] = { ...doc[fieldName] };
+                }
+              } else if (
+                doc[fieldName] &&
+                typeof doc[fieldName] === "object" &&
+                !doc[fieldName].root
+              ) {
+                // Array or nested object field (e.g., includes array with feature fields)
+                try {
+                  // Create a deep copy of the structure
+                  const fieldValue = JSON.parse(JSON.stringify(doc[fieldName]));
+
+                  // Use translateTextAndObjects to handle nested structures recursively
+                  const translatedField = await translateTextAndObjects(
+                    { [fieldName]: doc[fieldName] },
+                    { [fieldName]: fieldValue },
+                    [fieldName],
+                    targetLanguage,
+                    sourceLanguageI,
+                    settings || {},
+                    deeplService,
+                  );
+
+                  dataForUpdate[fieldName] = translatedField[fieldName];
+                } catch (error) {
+                  console.error(
+                    `Failed to translate nested field ${fieldName}:`,
+                    error,
+                  );
+                  dataForUpdate[fieldName] = doc[fieldName];
                 }
               }
             } catch (error) {
-              console.error(`Translation failed for field ${fieldName}:`, error)
-              dataForUpdate[fieldName] = doc[fieldName]
+              console.error(
+                `Translation failed for field ${fieldName}:`,
+                error,
+              );
+              dataForUpdate[fieldName] = doc[fieldName];
             }
           }
         }
 
-        return { dataNew: dataForUpdate, targetLanguage }
+        return { dataNew: dataForUpdate, targetLanguage };
       } catch (error) {
-        console.error(`Translation failed for locale ${targetLanguage}:`, error)
-        return null
+        console.error(
+          `Translation failed for locale ${targetLanguage}:`,
+          error,
+        );
+        return null;
       }
-    })
+    });
 
-  const translationResults = await Promise.all(translationPromises)
-  const validResults = translationResults.filter((result) => result !== null)
+  const translationResults = await Promise.all(translationPromises);
+  const validResults = translationResults.filter((result) => result !== null);
 
   for (const translatedContent of validResults) {
     if (translatedContent) {
@@ -158,25 +211,36 @@ export async function translateCollection({
           id: doc.id,
           locale: translatedContent.targetLanguage,
           fallbackLocale: false,
-        })
+        });
 
         // Clean the data to remove any circular references
-        const cleanData = { ...translatedContent.dataNew }
+        const cleanData = { ...translatedContent.dataNew };
 
         // For RichText fields, ensure they don't have circular references
         for (const key in cleanData) {
-          if (cleanData[key] && typeof cleanData[key] === 'object' && cleanData[key].root) {
+          if (
+            cleanData[key] &&
+            typeof cleanData[key] === "object" &&
+            cleanData[key].root
+          ) {
             try {
-              cleanData[key] = JSON.parse(JSON.stringify(cleanData[key]))
+              cleanData[key] = JSON.parse(JSON.stringify(cleanData[key]));
             } catch (error) {
-              console.warn(`Could not clean RichText field ${key}, using original:`, error)
-              const originalField = doc[key]
-              if (originalField && typeof originalField === 'object' && originalField.root) {
+              console.warn(
+                `Could not clean RichText field ${key}, using original:`,
+                error,
+              );
+              const originalField = doc[key];
+              if (
+                originalField &&
+                typeof originalField === "object" &&
+                originalField.root
+              ) {
                 cleanData[key] = {
                   root: {
                     children: originalField.root.children || [],
                   },
-                }
+                };
               }
             }
           }
@@ -195,14 +259,14 @@ export async function translateCollection({
               skipTranslate: true,
               skipSlug: true,
             },
-          })
+          });
         } else {
           // Create new localized document
           await req.payload.create({
             collection: collection.slug,
             data: {
               ...cleanData,
-              _status: 'draft',
+              _status: "draft",
             },
             locale: translatedContent.targetLanguage,
             depth: 0,
@@ -211,13 +275,13 @@ export async function translateCollection({
               skipTranslate: true,
               skipSlug: true,
             },
-          })
+          });
         }
       } catch (error) {
         console.error(
           `Failed to update translation for locale ${translatedContent.targetLanguage}:`,
           error,
-        )
+        );
       }
     }
   }

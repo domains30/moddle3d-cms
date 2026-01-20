@@ -1,42 +1,79 @@
-import { DeepLService } from './deeplService'
-import type { DeepLTranslationSettings } from './types'
+import { DeepLService } from "./deeplService";
+import type { DeepLTranslationSettings } from "./types";
 
 /**
  * Extract text content from nested objects recursively
  */
-function extractTextFromObject(obj: any, path: string[], textMap: { [key: string]: string }): void {
-  if (obj !== null && typeof obj === 'object') {
-    Object.keys(obj).forEach((key) => {
-      const currentPath = [...path, key]
-      const value = obj[key]
+function extractTextFromObject(
+  obj: any,
+  path: string[],
+  textMap: { [key: string]: string },
+): void {
+  if (obj !== null && typeof obj === "object") {
+    // Handle arrays explicitly
+    if (Array.isArray(obj)) {
+      obj.forEach((item, index) => {
+        const currentPath = [...path, String(index)];
+        if (typeof item === "string" && item.trim()) {
+          textMap[currentPath.join(".")] = item;
+        } else if (typeof item === "object" && item !== null) {
+          extractTextFromObject(item, currentPath, textMap);
+        }
+      });
+    } else {
+      // Handle regular objects
+      Object.keys(obj).forEach((key) => {
+        const currentPath = [...path, key];
+        const value = obj[key];
 
-      if (typeof value === 'string' && value.trim()) {
-        textMap[currentPath.join('.')] = value
-      } else if (typeof value === 'object' && value !== null) {
-        extractTextFromObject(value, currentPath, textMap)
-      }
-    })
+        if (typeof value === "string" && value.trim()) {
+          textMap[currentPath.join(".")] = value;
+        } else if (typeof value === "object" && value !== null) {
+          extractTextFromObject(value, currentPath, textMap);
+        }
+      });
+    }
   }
 }
 
 /**
  * Apply translated text back to nested objects recursively
  */
-function applyTranslatedText(obj: any, path: string[], textMap: { [key: string]: string }): void {
-  if (obj !== null && typeof obj === 'object') {
-    Object.keys(obj).forEach((key) => {
-      const currentPath = [...path, key]
-      const value = obj[key]
-
-      if (typeof value === 'string') {
-        const textKey = currentPath.join('.')
-        if (textMap[textKey]) {
-          obj[key] = textMap[textKey]
+function applyTranslatedText(
+  obj: any,
+  path: string[],
+  textMap: { [key: string]: string },
+): void {
+  if (obj !== null && typeof obj === "object") {
+    // Handle arrays explicitly
+    if (Array.isArray(obj)) {
+      obj.forEach((item, index) => {
+        const currentPath = [...path, String(index)];
+        if (typeof item === "string") {
+          const textKey = currentPath.join(".");
+          if (textMap[textKey]) {
+            obj[index] = textMap[textKey];
+          }
+        } else if (typeof item === "object" && item !== null) {
+          applyTranslatedText(item, currentPath, textMap);
         }
-      } else if (typeof value === 'object' && value !== null) {
-        applyTranslatedText(value, currentPath, textMap)
-      }
-    })
+      });
+    } else {
+      // Handle regular objects
+      Object.keys(obj).forEach((key) => {
+        const currentPath = [...path, key];
+        const value = obj[key];
+
+        if (typeof value === "string") {
+          const textKey = currentPath.join(".");
+          if (textMap[textKey]) {
+            obj[key] = textMap[textKey];
+          }
+        } else if (typeof value === "object" && value !== null) {
+          applyTranslatedText(value, currentPath, textMap);
+        }
+      });
+    }
   }
 }
 
@@ -49,56 +86,68 @@ export async function translateTextAndObjects(
   settings: DeepLTranslationSettings,
   deeplService: DeepLService,
 ): Promise<any> {
-  const textMap: { [key: string]: string } = {}
-  const textsToTranslate: { [key: string]: string } = {}
+  const textMap: { [key: string]: string } = {};
+  const textsToTranslate: { [key: string]: string } = {};
 
   // Extract text from source document
   fields.forEach((field) => {
-    if (sourceDoc[field]) {
-      if (typeof sourceDoc[field] === 'string') {
-        textsToTranslate[field] = sourceDoc[field]
-      } else if (typeof sourceDoc[field] === 'object' && sourceDoc[field] !== null) {
-        extractTextFromObject(sourceDoc[field], [field], textsToTranslate)
+    if (sourceDoc[field] !== undefined && sourceDoc[field] !== null) {
+      if (typeof sourceDoc[field] === "string") {
+        textsToTranslate[field] = sourceDoc[field];
+      } else if (
+        typeof sourceDoc[field] === "object" &&
+        sourceDoc[field] !== null
+      ) {
+        extractTextFromObject(sourceDoc[field], [field], textsToTranslate);
       }
     }
-  })
+  });
 
   if (Object.keys(textsToTranslate).length === 0) {
-    return targetDoc
+    return targetDoc;
   }
 
   // Translate all texts using DeepL
   try {
-    const texts = Object.values(textsToTranslate)
+    const texts = Object.values(textsToTranslate);
     const translatedTexts = await deeplService.translateBatch(
       texts,
       targetLanguage,
       sourceLanguage,
       settings,
-    )
+    );
 
     // Map translated texts back to their paths
-    const textPaths = Object.keys(textsToTranslate)
+    const textPaths = Object.keys(textsToTranslate);
     textPaths.forEach((path, index) => {
-      textMap[path] = translatedTexts[index]
-    })
+      textMap[path] = translatedTexts[index];
+    });
   } catch (error) {
-    console.error('Translation failed:', error)
-    throw error
+    console.error("Translation failed:", error);
+    throw error;
   }
 
   // Apply translated texts to target document
   fields.forEach((field) => {
-    if (sourceDoc[field]) {
-      if (typeof sourceDoc[field] === 'string') {
+    if (sourceDoc[field] !== undefined && sourceDoc[field] !== null) {
+      if (typeof sourceDoc[field] === "string") {
         if (textMap[field]) {
-          targetDoc[field] = textMap[field]
+          targetDoc[field] = textMap[field];
         }
-      } else if (typeof sourceDoc[field] === 'object' && sourceDoc[field] !== null) {
-        applyTranslatedText(targetDoc[field] || sourceDoc[field], [field], textMap)
+      } else if (
+        typeof sourceDoc[field] === "object" &&
+        sourceDoc[field] !== null
+      ) {
+        // Ensure target document has the field initialized
+        // If it doesn't exist or is null, create a deep copy from source
+        // This handles cases where fallback locale is enabled and field doesn't exist
+        if (!targetDoc[field] || targetDoc[field] === null) {
+          targetDoc[field] = JSON.parse(JSON.stringify(sourceDoc[field]));
+        }
+        applyTranslatedText(targetDoc[field], [field], textMap);
       }
     }
-  })
+  });
 
-  return targetDoc
+  return targetDoc;
 }

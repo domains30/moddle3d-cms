@@ -150,6 +150,7 @@ export interface Order {
       }[]
     | null;
   total: number;
+  currency?: ('EUR' | 'USD' | 'GBP' | 'CAD' | 'AUD') | null;
   status: 'pending' | 'processing' | 'completed' | 'cancelled';
   paymentMethod?: string | null;
   orderNotes?: string | null;
@@ -477,6 +478,7 @@ export interface OrdersSelect<T extends boolean = true> {
         id?: T;
       };
   total?: T;
+  currency?: T;
   status?: T;
   paymentMethod?: T;
   orderNotes?: T;

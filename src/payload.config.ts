@@ -106,8 +106,8 @@ export default buildConfig({
     }),
   ],
   email: nodemailerAdapter({
-    defaultFromName: "Dreamart 3D",
-    defaultFromAddress: "noreply@dreamart3d.com",
+    defaultFromName: "Moddle 3D",
+    defaultFromAddress: "info@moddle3d.com",
     transportOptions: nodemailerSendgrid({
       apiKey: process.env.SENDGRID_API_KEY ?? "",
     }),

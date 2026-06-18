@@ -65,6 +65,20 @@ export const Orders: CollectionConfig = {
       required: true,
     },
     {
+      name: 'currency',
+      type: 'select',
+      label: 'Currency',
+      options: [
+        { label: 'EUR', value: 'EUR' },
+        { label: 'USD', value: 'USD' },
+        { label: 'GBP', value: 'GBP' },
+        { label: 'CAD', value: 'CAD' },
+        { label: 'AUD', value: 'AUD' },
+      ],
+      defaultValue: 'EUR',
+      required: false,
+    },
+    {
       name: 'status',
       type: 'select',
       options: [

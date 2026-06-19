@@ -155,7 +155,7 @@ export const Orders: CollectionConfig = {
 
           const lastOrderNumber = result.docs.length
             ? parseInt(
-                (result.docs[0].orderNumber ?? "MDL_100").replace("ORD-", ""),
+                (result.docs[0].orderNumber ?? "MDL_100").replace("MDL_", ""),
                 10,
               )
             : 100;

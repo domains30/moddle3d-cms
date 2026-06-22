@@ -27,6 +27,26 @@ export const Orders: CollectionConfig = {
       required: false,
     },
     {
+      name: "registrationEmail",
+      type: "email",
+      label: "Email at registration",
+      admin: {
+        readOnly: true,
+        description:
+          "Original registration email of the customer who placed this order.",
+      },
+    },
+    {
+      name: "currentEmail",
+      type: "email",
+      label: "Current email",
+      admin: {
+        readOnly: true,
+        description:
+          "The email the customer currently uses to log in (kept in sync with the user).",
+      },
+    },
+    {
       name: "items",
       type: "array",
       label: "Ordered Items",
@@ -244,6 +264,40 @@ export const Orders: CollectionConfig = {
           req.payload.logger.error(
             `Failed to send order completion email for ${doc.orderNumber}: ${error}`,
           );
+        }
+
+        return doc;
+      },
+    ],
+    afterRead: [
+      async ({ doc, req }) => {
+        // Surface the customer's registration email and current email on every
+        // order, so support can see both even after the customer changes it.
+        try {
+          const userRef = doc?.user;
+          if (!userRef) return doc;
+
+          let user =
+            typeof userRef === "object" && userRef ? userRef : null;
+
+          if (!user || user.registrationEmail === undefined) {
+            const id = typeof userRef === "object" ? userRef.id : userRef;
+            if (id) {
+              user = await req.payload.findByID({
+                collection: "users",
+                id,
+                depth: 0,
+              });
+            }
+          }
+
+          if (user) {
+            doc.registrationEmail =
+              user.registrationEmail ?? user.email ?? null;
+            doc.currentEmail = user.email ?? null;
+          }
+        } catch {
+          // Non-fatal: leave the email fields empty if the lookup fails.
         }
 
         return doc;

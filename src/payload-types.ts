@@ -139,6 +139,14 @@ export interface Order {
   id: number;
   orderNumber?: string | null;
   user?: (number | null) | User;
+  /**
+   * Original registration email of the customer who placed this order.
+   */
+  registrationEmail?: string | null;
+  /**
+   * The email the customer currently uses to log in (kept in sync with the user).
+   */
+  currentEmail?: string | null;
   items?:
     | {
         product?: (number | null) | Product;
@@ -173,6 +181,10 @@ export interface Order {
  */
 export interface User {
   id: number;
+  /**
+   * The original email captured at registration — the address that received the welcome / credentials email. Never changes.
+   */
+  registrationEmail?: string | null;
   firstName: string;
   lastName: string;
   username?: string | null;
@@ -184,8 +196,21 @@ export interface User {
   zip?: string | null;
   country?: string | null;
   role: 'admin' | 'customer';
+  /**
+   * Record of every email change the customer made in their account.
+   */
+  emailHistory?:
+    | {
+        previousEmail?: string | null;
+        changedAt?: string | null;
+        id?: string | null;
+      }[]
+    | null;
   updatedAt: string;
   createdAt: string;
+  /**
+   * The email the customer currently uses to log in. Updates automatically when they change it in their account.
+   */
   email: string;
   resetPasswordToken?: string | null;
   resetPasswordExpiration?: string | null;
@@ -467,6 +492,8 @@ export interface PayloadMigration {
 export interface OrdersSelect<T extends boolean = true> {
   orderNumber?: T;
   user?: T;
+  registrationEmail?: T;
+  currentEmail?: T;
   items?:
     | T
     | {
@@ -626,6 +653,7 @@ export interface PricingPackagesSelect<T extends boolean = true> {
  * via the `definition` "users_select".
  */
 export interface UsersSelect<T extends boolean = true> {
+  registrationEmail?: T;
   firstName?: T;
   lastName?: T;
   username?: T;
@@ -637,6 +665,13 @@ export interface UsersSelect<T extends boolean = true> {
   zip?: T;
   country?: T;
   role?: T;
+  emailHistory?:
+    | T
+    | {
+        previousEmail?: T;
+        changedAt?: T;
+        id?: T;
+      };
   updatedAt?: T;
   createdAt?: T;
   email?: T;

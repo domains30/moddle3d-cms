@@ -31,6 +31,27 @@ export const Users: CollectionConfig = {
   },
   fields: [
     {
+      name: 'email',
+      type: 'email',
+      label: 'Current email',
+      required: true,
+      unique: true,
+      admin: {
+        description:
+          'The email the customer currently uses to log in. Updates automatically when they change it in their account.',
+      },
+    },
+    {
+      name: 'registrationEmail',
+      type: 'email',
+      label: 'Email at registration',
+      admin: {
+        readOnly: true,
+        description:
+          'The original email captured at registration — the address that received the welcome / credentials email. Never changes.',
+      },
+    },
+    {
       name: 'firstName',
       type: 'text',
       label: 'First Name',
@@ -100,5 +121,58 @@ export const Users: CollectionConfig = {
       defaultValue: 'customer',
       required: true,
     },
+    {
+      name: 'emailHistory',
+      type: 'array',
+      label: 'Email change log',
+      admin: {
+        readOnly: true,
+        initCollapsed: true,
+        description: 'Record of every email change the customer made in their account.',
+      },
+      fields: [
+        {
+          name: 'previousEmail',
+          type: 'email',
+          label: 'Previous email',
+        },
+        {
+          name: 'changedAt',
+          type: 'date',
+          label: 'Changed at',
+        },
+      ],
+    },
   ],
+  hooks: {
+    beforeChange: [
+      ({ data, operation, originalDoc }) => {
+        // Capture the registration email once, when the account is first created.
+        if (operation === 'create') {
+          if (!data.registrationEmail) {
+            data.registrationEmail = data.email
+          }
+        }
+
+        // When the customer changes their email, keep the registration email
+        // intact and log the previous address.
+        if (operation === 'update' && originalDoc && data.email && data.email !== originalDoc.email) {
+          if (!data.registrationEmail) {
+            data.registrationEmail = originalDoc.registrationEmail || originalDoc.email
+          }
+
+          const history = Array.isArray(originalDoc.emailHistory) ? originalDoc.emailHistory : []
+          data.emailHistory = [
+            ...history,
+            {
+              previousEmail: originalDoc.email,
+              changedAt: new Date().toISOString(),
+            },
+          ]
+        }
+
+        return data
+      },
+    ],
+  },
 }

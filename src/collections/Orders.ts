@@ -1,5 +1,7 @@
 import type { CollectionConfig } from "payload";
 
+import { renderOrderCompletedEmail } from "../emails/orderCompleted";
+
 export const Orders: CollectionConfig = {
   slug: "orders",
   admin: {
@@ -163,6 +165,88 @@ export const Orders: CollectionConfig = {
           data.orderNumber = `MDL_${lastOrderNumber + 1}`;
         }
         return data;
+      },
+    ],
+    afterChange: [
+      async ({ doc, previousDoc, req }) => {
+        const becameCompleted =
+          doc.status === "completed" && previousDoc?.status !== "completed";
+
+        if (!becameCompleted) return doc;
+
+        // Resolve the user (may be an ID or a populated object).
+        let user = doc.user;
+        if (user && typeof user !== "object") {
+          try {
+            user = await req.payload.findByID({
+              collection: "users",
+              id: user,
+            });
+          } catch {
+            user = null;
+          }
+        }
+
+        const to = user && typeof user === "object" ? user.email : null;
+        if (!to) {
+          req.payload.logger.warn(
+            `Order ${doc.orderNumber} marked completed but has no user email to notify.`,
+          );
+          return doc;
+        }
+
+        const clientName =
+          [user.firstName, user.lastName].filter(Boolean).join(" ").trim() ||
+          user.username ||
+          "there";
+
+        // Collect every downloadable file: per-item links + order-level upload.
+        const downloads: { name: string; url: string }[] = [];
+
+        for (const item of doc.items ?? []) {
+          if (item?.file_url) {
+            downloads.push({
+              name: item.file_name || "File",
+              url: item.file_url,
+            });
+          }
+        }
+
+        let files = doc.files;
+        if (files && typeof files !== "object") {
+          try {
+            files = await req.payload.findByID({
+              collection: "media",
+              id: files,
+            });
+          } catch {
+            files = null;
+          }
+        }
+        if (files && typeof files === "object" && files.url) {
+          downloads.push({
+            name: files.filename || "File",
+            url: files.url,
+          });
+        }
+
+        try {
+          await req.payload.sendEmail({
+            to,
+            subject: `Your Moddle 3D Order is Ready for Download – ${doc.orderNumber}`,
+            html: renderOrderCompletedEmail({
+              orderNumber: doc.orderNumber ?? "",
+              clientName,
+              downloads,
+            }),
+          });
+        } catch (error) {
+          req.payload.logger.error(
+            `Failed to send order completion email for ${doc.orderNumber}: ${error}`,
+          );
+        }
+
+        return doc;
       },
     ],
   },

@@ -1,6 +1,6 @@
 import type { CollectionConfig } from "payload";
 
-import { renderOrderCompletedEmail } from "../emails/orderCompleted";
+import { orderCompletedBody } from "../emails/orderCompleted";
 
 export const Orders: CollectionConfig = {
   slug: "orders",
@@ -234,7 +234,7 @@ export const Orders: CollectionConfig = {
           await req.payload.sendEmail({
             to,
             subject: `Your Moddle 3D Order is Ready for Download – ${doc.orderNumber}`,
-            html: renderOrderCompletedEmail({
+            html: orderCompletedBody({
               orderNumber: doc.orderNumber ?? "",
               clientName,
               downloads,

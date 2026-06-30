@@ -149,7 +149,15 @@ export interface Order {
   currentEmail?: string | null;
   items?:
     | {
-        product?: (number | null) | Product;
+        product?:
+          | ({
+              relationTo: 'products';
+              value: number | Product;
+            } | null)
+          | ({
+              relationTo: 'pricing-packages';
+              value: number | PricingPackage;
+            } | null);
         quantity?: number | null;
         price?: number | null;
         file_name?: string | null;
@@ -313,6 +321,39 @@ export interface Category {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "pricing-packages".
+ */
+export interface PricingPackage {
+  id: number;
+  title: string;
+  slug?: string | null;
+  description?: string | null;
+  category?: (number | null) | PricingCategory;
+  price?: number | null;
+  includes?:
+    | {
+        feature?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  button_text?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "pricing-categories".
+ */
+export interface PricingCategory {
+  id: number;
+  title: string;
+  slug?: string | null;
+  description?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "trends".
  */
 export interface Trend {
@@ -364,39 +405,6 @@ export interface Policy {
     };
     [k: string]: unknown;
   } | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "pricing-categories".
- */
-export interface PricingCategory {
-  id: number;
-  title: string;
-  slug?: string | null;
-  description?: string | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "pricing-packages".
- */
-export interface PricingPackage {
-  id: number;
-  title: string;
-  slug?: string | null;
-  description?: string | null;
-  category?: (number | null) | PricingCategory;
-  price?: number | null;
-  includes?:
-    | {
-        feature?: string | null;
-        id?: string | null;
-      }[]
-    | null;
-  button_text?: string | null;
   updatedAt: string;
   createdAt: string;
 }

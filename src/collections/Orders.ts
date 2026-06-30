@@ -108,6 +108,7 @@ export const Orders: CollectionConfig = {
         { label: "Processing", value: "processing" },
         { label: "Completed", value: "completed" },
         { label: "Cancelled", value: "cancelled" },
+        { label: "Blocked", value: "blocked" },
       ],
       defaultValue: "pending",
       required: true,
@@ -277,8 +278,7 @@ export const Orders: CollectionConfig = {
           const userRef = doc?.user;
           if (!userRef) return doc;
 
-          let user =
-            typeof userRef === "object" && userRef ? userRef : null;
+          let user = typeof userRef === "object" && userRef ? userRef : null;
 
           if (!user || user.registrationEmail === undefined) {
             const id = typeof userRef === "object" ? userRef.id : userRef;

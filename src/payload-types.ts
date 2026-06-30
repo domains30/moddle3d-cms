@@ -159,7 +159,7 @@ export interface Order {
     | null;
   total: number;
   currency?: ('EUR' | 'USD' | 'GBP' | 'CAD' | 'AUD') | null;
-  status: 'pending' | 'processing' | 'completed' | 'cancelled';
+  status: 'pending' | 'processing' | 'completed' | 'cancelled' | 'blocked';
   paymentMethod?: string | null;
   orderNotes?: string | null;
   billingAddress?: {
